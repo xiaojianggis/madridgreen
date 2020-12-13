@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Create a time slider</title>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<script src="https://api.mapbox.com/mapbox-gl-js/v2.0.0/mapbox-gl.js"></script>
+	<link href="https://api.mapbox.com/mapbox-gl-js/v2.0.0/mapbox-gl.css" rel="stylesheet" />
+ 	<link rel="stylesheet" href="css/main.css" />
+
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="/css/maplegend.css" rel="stylesheet">
+    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v0.53.1/mapbox-gl.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+	<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+     
+<style></style>
+
+</head>
+
+<body>
+	<style>
+		body { margin: 0; padding: 0; }
+		#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        .window {
+            font: bold 18px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            padding: 30px;
+            align-content: justify;
+            color: #ffff;
+            background-color: #228B22;
+            border-radius: 20px;
+            box-shadow: 0px 3px 10px rgba(0, 0, 0, .8);
+            z-index: 1000;
+            opacity: 0.85;
+        }
+
+        .window.landing {
+            position: absolute;
+            top: 60px;
+            bottom: 40px;
+            left: 10px;
+            right: 10px;
+        }
+
+        .window h1 {
+            margin-top: 0;
+        }
+
+        .landing {
+            margin: auto;
+            max-width: 700px;
+            max-height: 500px;
+        }
+
+
+		.center {
+		  display: block;
+		  margin-left: auto;
+		  margin-right: auto;
+		  width: 50%;
+		}
+
+		.pointInfo {
+			  position: absolute;
+			  font-family: sans-serif;
+			  right: 20px;
+			  top: 20px;
+			  padding: 5px;
+			  z-index: 1;
+			  width: 200px;
+			  height: 80px;
+			  /*border: 2px solid black;*/
+			  font-size: 14px;
+			  color: #222;
+			  background-color: #fff;
+			  border-radius: 3px;
+		}
+
+		.stats {
+			font-size: 50px;
+			font-family: sans-serif;
+		}
+
+
+	</style>
+
+	<div id="green-view-info"class="window landing" style="display:block" onclick="showGreenery()">
+	    <h1 style="font-size: 24px">Mapping street trees using Google Street View</h1>
+
+		<p><strong>Trees beautify the streets and benefit pedestrians. This project maps the visibility of street trees from pedestrian's perspective using Google Street View and machine learning <a href="http://senseable.mit.edu/treepedia/treepedia_publication.pdf"  target="_blank"> (More)</a>.</strong></p>
+
+
+	    <img src="imgs/greenview.png"  style="width:500px;height:400px;" class="center">
+
+	</div>
+
+
+	<div id="shade-factor-info"class="window landing" style="display:none" onclick="showShade()">
+	    <h1 style="font-size: 24px">Mapping tree shade using Google Street View + AI</h1>
+
+		<p><strong>Trees provide shade during hot summer. This project maps the shade provision by street trees using Google Street View and deep learning<a href="http://senseable.mit.edu/papers/pdf/20180425_Li-Ratti_MappingShades_UrbanForestry.pdf"  target="_blank"> (More)</a>.</strong></p>
+		<br>
+	    <img src="imgs/shade.png"  style="width:500px;height:360px;" class="center">
+<!-- 	    <hr>
+	    <p>Click here to explore the map</p> -->
+	</div>
+
+
+	<div id="map"></div>
+	<div class="map-overlay top" id="console">
+	    <h1>Trees are good</h1>
+	    <p class="description">As an important part of urban greenery, street trees help to improve air quality in urban street canyons that carry most of the human activities in cities. The street trees also act as a barrier to protect urban residents from noise pollution and visual intrusion. In hot summer, street trees help to provide shade and increase the thermal comfort for pedestrians. In addition, the existence of street trees usually increases people’s esthetic rating of streetscapes, which would further increase the resident’s physical activities and social cohesion in neighborhoods.</p>
+	    <div class="map-overlay-inner">
+
+	    </div>
+	    <div class="session">
+	    	<p id = 'legendtitle' style="font-size: 16px"><strong>Green View Index (%)</strong></p>
+	        <div class="row colors"></div>
+	        <div id='gvilabels' class="row labels">
+<!-- 	            <div class="label">0</div>
+	            <div class="label">5</div>
+	            <div class="label">10</div>
+	            <div class="label">15</div>
+	            <div class="label">20+</div> -->
+	        </div>
+	    </div>
+	</div>
+
+	<ul id="buttons">
+		<li id="greenery_bt" class="button" style="font-size: 16px; background: green" onclick="showGreenery()">Street greeness</li>
+		<li id="shade_bt" class="button" style="font-size: 16px" onclick="showShade()">Tree shade</li>
+	</ul>
+
+	<div class='pointInfo popup'>
+	  <div style="font-size: 18px; color: green"><strong id='legendname'>Green View Index:</strong></div>
+	  <div class= 'stats' style="color: green"> <span id='pntinfo'></span></div>
+	</div>
+
+
+<script>
+	mapboxgl.accessToken = 'pk.eyJ1IjoieGlhb2ppYW5nZ2lzIiwiYSI6ImNrNnI5ZzJmcDAxNWszbW9mMjV1bGxsb3oifQ.O2EHW7BWQ3-qjo_u7ddqNA';
+	var map = new mapboxgl.Map({
+		container: 'map',
+		style: 'mapbox://styles/mapbox/light-v10',
+		// style: 'mapbox://styles/xiaojianggis/ckihvfymy0unq19oj6kwzjezt',
+		center: [-3.632, 40.443], //40.442911699193765, -3.6322877645863807
+		zoom: 15
+	});
+	
+    var hoveredStateId = null;
+    var zoomThreshold = 4;
+    var greeninfo_flag = 0;
+    var shadeinfo_flag = 0;
+    var gviarray = ['0', '5', '10', '15', '20'];
+    var gvrarray = ['0', '5', '10', '15', '20'];
+
+    var gvi_legendName = 'Green View Index (%)';
+    var gvr_legendName = 'Shade provision (%)';
+
+
+    var pntInfo = document.getElementById('pntinfo');
+
+
+	map.on('load', function () {
+		initLayer();
+
+		// map.on('mousemove', 'madridgvi', (e) => {
+		//   map.getCanvas().style.cursor = 'pointer';
+		//   // Set variables equal to the current feature's magnitude, location, and time
+		//   var quakeMagnitude = e.features[0].properties.GVI;
+
+		//   // Check whether features exist
+		//   if (e.features.length > 0) {
+		//     // Display the magnitude, location, and time in the sidebar
+		//     pntInfo.textContent = quakeMagnitude;	
+
+		// 	if (hoveredStateId) {
+		// 		map.setFeatureState(
+		// 		{ 
+		// 			source: 'madrid_green', 
+		// 			sourceLayer: 'green',
+		// 			id: hoveredStateId 
+		// 		},
+		// 		{ 
+		// 			hover: false 
+		// 		});
+		// 	}
+
+		// 	hoveredStateId = e.features[0].id;
+		// 	console.log(e.features[0]);
+
+		// 	map.setFeatureState(
+		// 		{
+		// 			source: 'madrid_green', 
+		// 			sourceLayer: 'green', //this has to be the green
+		// 			id: hoveredStateId 
+		// 		},
+		// 		{
+		// 			hover: true
+		// 		});
+
+		//   }
+		// });
+
+  //       // When the mouse leaves the earthquakes-viz layer, update the
+  //       // feature state of the previously hovered feature
+  //       map.on('mouseleave', 'madridgvi', function () {
+  //         if (hoveredStateId) {
+  //           map.setFeatureState(
+  //             {
+		// 		source: 'madrid_green', 
+		// 		sourceLayer: 'green',
+		// 		id: hoveredStateId 
+  //             },
+  //             {
+  //               hover: false
+  //             }
+  //           );
+  //         }
+  //         hoveredStateId = null;
+  //         // Remove the information from the previously hovered feature from the sidebar
+  //         pntInfo.textContent = '';
+
+  //         // Reset the cursor style
+  //         map.getCanvas().style.cursor = '';
+  //       });
+
+
+	    map.addLayer({
+	        'id': 'circles_layer_hover',
+	        'type': 'circle',
+	        'source': 'madrid_green',     
+	        'source-layer': 'green',
+	        'paint': {
+				'circle-radius': {
+					'base': 20,
+					'stops': [   //set it for different scale, if you don't save then keep the pre setting
+						[8, 1],
+						[9, 2],
+						[11, 4],
+						[14, 6],
+						[16, 9]
+					]
+				},            //'circle-radius': 100,
+	            'circle-opacity': 0.5,
+	            'circle-pitch-alignment': 'map',
+	            'circle-pitch-scale': 'map',
+	            'circle-stroke-color': 'blue',
+	            'circle-stroke-width': 8,
+	            'circle-color': 'blue'
+	        },
+	        "filter": ["==", "PANOID", ""]
+	  });
+
+
+	    map.addLayer({
+	        'id': 'circles_layer_hover_gvr',
+	        'type': 'circle',
+	        'source': 'madrid_green',     
+	        'source-layer': 'green',
+	        'paint': {
+				'circle-radius': {
+					'base': 20,
+					'stops': [   //set it for different scale, if you don't save then keep the pre setting
+						[8, 1],
+						[9, 2],
+						[11, 4],
+						[14, 6],
+						[16, 9]
+					]
+				},            //'circle-radius': 100,
+	            'circle-opacity': 0.5,
+	            'circle-pitch-alignment': 'map',
+	            'circle-pitch-scale': 'map',
+	            'circle-stroke-color': 'blue',
+	            'circle-stroke-width': 8,
+	            'circle-color': 'blue'
+	        },
+	        "filter": ["==", "PANOID", ""]
+	  });
+
+
+		map.on("mousemove", "madridgvi", function(e) {
+				map.getCanvas().style.cursor = 'pointer';
+				// console.log(e.features[0]);
+				pntInfo.innerHTML = e.features[0].properties.GVI.toFixed(2);
+				pntInfo.className = 'stats';
+
+		    map.setFilter("circles_layer_hover", ["==", "PANOID", e.features[0].properties.PANOID]);
+		});
+
+		// Reset the state-fills-hover layer's filter when the mouse leaves the layer.
+		map.on("mouseleave", "madridgvi", function() {
+		    map.getCanvas().style.cursor = '';
+		    map.setFilter("circles_layer_hover", ["==", "PANOID", ""]);
+		});
+
+
+		map.on("mousemove", "madridgvr", function(e) {
+				map.getCanvas().style.cursor = 'pointer';
+				// console.log(e.features[0]);
+				pntInfo.innerHTML = (e.features[0].properties.GVR*100).toFixed(2);
+		    map.setFilter("circles_layer_hover_gvr", ["==", "PANOID", e.features[0].properties.PANOID]);
+		});
+
+		// Reset the state-fills-hover layer's filter when the mouse leaves the layer.
+		map.on("mouseleave", "madridgvr", function() {
+		    map.getCanvas().style.cursor = '';
+		    map.setFilter("circles_layer_hover_gvr", ["==", "PANOID", ""]);
+		});
+
+		
+		map.on('click', function(e) {
+			// The event object (e) contains information like the
+			// coordinates of the point on the map that was clicked.
+			console.log('A click event has occurred at ' + e.lngLat);
+
+			document.getElementById("green-view-info").style.display = 'none';
+			document.getElementById("shade-factor-info").style.display = 'none';
+		});
+
+	});
+
+
+	function initLayer(){
+		map.addSource('madrid_green', {
+			type: 'vector',
+			url: 'mapbox://xiaojianggis.448nfxkm'
+		});
+
+      addLabels(gviarray, gvi_legendName);
+
+	  // add the layer of green view factor, shade
+      map.addLayer({
+        id: 'madridgvr',
+        // type: 'fill',
+        'type': 'circle',
+        source: 'madrid_green',
+        'source-layer': 'green',
+		layout: {
+			// make layer visible by default
+			'visibility': 'none'
+		},
+          paint: {
+			'circle-radius': {
+				'base': 20,
+				'stops': [   //set it for different scale, if you don't save then keep the pre setting
+					[8, 1],
+					[9, 2],
+					[11, 4],
+					[14, 6],
+					[16, 9]
+				]
+			},
+
+            'circle-color': [
+              "interpolate",
+                ["linear"], 
+                ["get", 'GVR'],
+                0.05, "#F10B0B", 
+                0.1, "#EB6713",
+                0.15, "#EBBA2C",
+                0.20, "#8BF27C",
+                0.25, '#36CA21',
+                0.30, '#2E7D39'
+            ]
+          },
+
+        layout: {}
+      });
+
+
+	  // add the layer of gvi, greeness
+      map.addLayer({
+        id: 'madridgvi',
+        // type: 'fill',
+        'type': 'circle',
+        source: 'madrid_green',
+
+		layout: {
+			// make layer visible by default
+			'visibility': 'visible'
+		},
+        'source-layer': 'green',
+          paint: {
+			'circle-radius': {
+				'base': 20,
+				'stops': [   //set it for different scale, if you don't save then keep the pre setting
+					[8, 1],
+					[9, 2],
+					[11, 4],
+					[14, 6],
+					[16, 9]
+				]
+			},
+
+            'circle-color': [
+              'case',
+              ['boolean', ['feature-state', 'hover'], false],
+               'blue', 
+	            ["interpolate",
+                ["linear"], 
+                ["get", 'GVI'],
+	                0, "#F10B0B", 
+	                5, "#EB6713", 
+	                10, "#EBBA2C", 
+	                15, "#8BF27C",
+	                20, "#36CA21",
+	                25, '#2E7D39'
+                ],
+            ]
+
+          },
+        layout: {}
+      });
+	}
+
+
+	// add lables for the legend
+	function addLabels(inarray, field){
+		var labels = document.getElementById('gvilabels');
+		removeAllChildNodes(labels);
+
+		for (var i = 0; i <= inarray.length - 1; i++) {
+			// labeltext = gviarray[i]
+			var div = document.createElement('div');
+			div.innerHTML = inarray[i]
+			div.className = 'label';
+			labels.appendChild(div);
+		}
+
+		document.getElementById('legendtitle').innerHTML = field.bold();
+		// var labels = document.getElementById('gvilabels');
+		// var div = document.createElement('div');
+		// labels.appendChild
+	}
+
+
+	function removeAllChildNodes(parent) {
+	    while (parent.firstChild) {
+	        parent.removeChild(parent.firstChild);
+	    }
+	}
+
+    function addLayer_gvi(){
+      addLabels(gviarray, gvi_legendName);
+      map.setLayoutProperty('madridgvi', 'visibility', 'visible');
+      map.setLayoutProperty('madridgvr', 'visibility', 'none');
+      document.getElementById('legendname').innerHTML='Green View Index (%)';
+	}
+ 	
+
+    function addLayer_gvr(){
+      // remove the layer of gvi
+   //    if (map.getLayer("madridgvi")) {
+		 //    map.removeLayer("madridgvi");
+	  // }
+	  	addLabels(gvrarray, gvr_legendName);
+		map.setLayoutProperty('madridgvr', 'visibility', 'visible');
+		map.setLayoutProperty('madridgvi', 'visibility', 'none');
+		document.getElementById('legendname').innerHTML	 = 'Shade provision (%)';
+	}
+
+
+  function showGreenery() {
+  	if (greeninfo_flag) {
+  		greeninfo_flag = 0;
+  		shadeinfo_flag = 0;
+  		document.getElementById("green-view-info").style.display = 'block';
+  		document.getElementById("shade-factor-info").style.display = 'none';
+  	} else {
+  		greeninfo_flag = 1;
+  		shadeinfo_flag = 0;
+  		document.getElementById("green-view-info").style.display = 'none';
+  	}
+  	
+  	var shadebuttonstyle = document.getElementById('shade_bt')
+	var greenbuttonstyle = document.getElementById('greenery_bt')
+	greenbuttonstyle.style.background = 'green';
+	greenbuttonstyle.style.color = '#fff';
+	shadebuttonstyle.style.background = 'grey';
+	document.getElementById('legendtitle').innerHTML = 'Green View Index (%)';
+	addLayer_gvi();
+  }
+
+
+  function showShade() {
+  	if (shadeinfo_flag) {
+  		shadeinfo_flag = 0;
+  		greeninfo_flag = 1;
+  		document.getElementById("shade-factor-info").style.display = 'none';
+  		
+  	} else {
+  		shadeinfo_flag = 1;
+  		greeninfo_flag = 1;
+  		document.getElementById("shade-factor-info").style.display = 'block';
+  		document.getElementById("green-view-info").style.display = 'none';
+  	}
+  	
+	var shadebuttonstyle = document.getElementById('shade_bt')
+	var greenbuttonstyle = document.getElementById('greenery_bt')
+	shadebuttonstyle.style.background = 'green';
+	shadebuttonstyle.style.color = '#fff';
+	greenbuttonstyle.style.background='grey';
+	document.getElementById('legendtitle').innerHTML = 'Shade provision (%)';
+	addLayer_gvr();
+  }
+
+
+</script>
+ 
+</body>
+</html>
